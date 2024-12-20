@@ -5,8 +5,8 @@ LDFLAGS = -lGL -lGLU -lglut
 
 TARGET = SolarSystem
 
-SRCS = main.cpp
-HEADERS = Solar.hpp
+SRCS = main.cpp getBMP.cpp
+HEADERS = Solar.hpp getBMP.h
 
 # Build rule
 all: $(TARGET)

@@ -36,6 +36,8 @@
 #include <stdlib.h>
 #include <cmath>
 #include <GL/glut.h> // OpenGL Graphics Utility Library
+#include "getBMP.h"
+#include <iostream>
 
 static GLenum spinMode = GL_TRUE;
 static GLenum singleStep = GL_FALSE;
@@ -65,6 +67,37 @@ static float HourOfDay = 0.0;
 static float DayOfYear = 0.0;
 static float AnimateIncrement = 24.0; // Time step for animation (hours)
 
+GLfloat WHITE[] = {1, 1, 1};
+GLfloat RED[] = {1, 0, 0};
+GLfloat GREEN[] = {0, 1, 0};
+GLfloat MAGENTA[] = {1, 0, 1};
+
+bool ambientEnabled = true;
+bool diffuseEnabled = true;
+bool specularEnabled = true;
+
+
+void SetupLighting()
+{
+    glEnable(GL_LIGHTING);
+    glEnable(GL_LIGHT0);
+
+    GLfloat lightAmbient[] = {0.2f, 0.2f, 0.2f, 1.0f};
+    GLfloat lightDiffuse[] = {0.8f, 0.8f, 0.8f, 1.0f};
+    GLfloat lightSpecular[] = {1.0f, 1.0f, 1.0f, 1.0f};
+    GLfloat lightOff[] = {0.0f, 0.0f, 0.0f, 1.0f};
+
+    glLightfv(GL_LIGHT0, GL_AMBIENT, ambientEnabled ? lightAmbient : lightOff);
+    glLightfv(GL_LIGHT0, GL_DIFFUSE, diffuseEnabled ? lightDiffuse : lightOff);
+    glLightfv(GL_LIGHT0, GL_SPECULAR, specularEnabled ? lightSpecular : lightOff);
+
+    GLfloat lightPosition[] = {0.0f, 0.0f, 0.0f, 1.0f}; // Point light at Sun
+    glLightfv(GL_LIGHT0, GL_POSITION, lightPosition);
+
+    glEnable(GL_COLOR_MATERIAL);
+    glColorMaterial(GL_FRONT, GL_AMBIENT_AND_DIFFUSE);
+}
+
 
 
 // glutKeyboardFunc is called below to set this function to handle
@@ -81,9 +114,24 @@ static void KeyPressFunc(unsigned char Key, int x, int y)
 	case 'S':
 		Key_s();
 		break;
+	case 'a':
+	case 'A':
+      ambientEnabled = !ambientEnabled;
+	  std::cout << "ambientEnabled: " << ambientEnabled << std::endl;
+      break;
+    case '1':
+      specularEnabled = !specularEnabled;
+	  std::cout << "specularenabled: " << specularEnabled << std::endl;
+      break;
+    case 'd': 
+	case 'D':
+      diffuseEnabled = !diffuseEnabled;
+	  std::cout << "diffuseEnabled: " << diffuseEnabled << std::endl;
+      break;
 	case 27: // Escape key
 		exit(1);
 	}
+	glutPostRedisplay();
 }
 
 // glutSpecialFunc is called below to set this function to handle
@@ -137,6 +185,8 @@ static void Key_down(void)
  */
 static void Animate(void)
 {
+
+	SetupLighting();
 	// Clear the rendering window
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -160,8 +210,31 @@ static void Animate(void)
 	glRotatef(15.0, 1.0, 0.0, 0.0);
 
 	// Draw the sun as a yellow, wireframe sphere
-	glColor3f(.0, 1.0, 0.0);
-	glutWireSphere(0.05, 15, 15);
+	//glColor3f(.0, 1.0, 0.0);
+	imageFile* sunTexture = getBMP("images/sun.bmp");
+    glEnable(GL_TEXTURE_2D);
+
+    GLuint sunTextureID;
+    glGenTextures(1, &sunTextureID);
+    glBindTexture(GL_TEXTURE_2D, sunTextureID);
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, sunTexture->width, sunTexture->height, 0, GL_RGBA, GL_UNSIGNED_BYTE, sunTexture->data);
+
+    GLUquadric* sunQuad = gluNewQuadric();
+    gluQuadricTexture(sunQuad, GL_TRUE);
+    gluSphere(sunQuad, 0.4, 20, 20);
+
+    gluDeleteQuadric(sunQuad);
+    glDeleteTextures(1, &sunTextureID);
+    glDisable(GL_TEXTURE_2D);
+
+    delete[] sunTexture->data;
+    delete sunTexture;
 
 	struct Planet
 	{
@@ -170,26 +243,52 @@ static void Animate(void)
 		float day;
 		float size;
 		float r, g, b;
+		std::string image;
 	};
 
 	Planet planets[] = {
-		{0.579, MERCURY_YEAR, MERCURY_DAY, 0.1, 0.5, 0.5, 0.5},
-		{1.082, VENUS_YEAR, VENUS_DAY, 0.12, 0.9, 0.6, 0.1},
-		{1.496, EARTH_YEAR, EARTH_DAY, 0.13, 0.2, 0.2, 1.0},
-		{2.28, MARS_YEAR, MARS_DAY, 0.07, 1.0, 0.0, 0.0},
-		{7.79, JUPITER_YEAR, JUPITER_DAY, 0.3, 1.0, 0.5, 0.0},
-		{14.27, SATURN_YEAR, SATURN_DAY, 0.25, 1.0, 1.0, 0.5},
-		{28.71, URANUS_YEAR, URANUS_DAY, 0.2, 0.5, 0.5, 1.0},
-		{44.97, NEPTUNE_YEAR, NEPTUNE_DAY, 0.18, 0.3, 0.3, 0.8}};
+		{0.579, MERCURY_YEAR, MERCURY_DAY, 0.1, 0.5, 0.5, 0.5, "images/mercury.bmp"},
+		{1.082, VENUS_YEAR, VENUS_DAY, 0.12, 0.9, 0.6, 0.1, "images/venus.bmp"},
+		{1.496, EARTH_YEAR, EARTH_DAY, 0.13, 0.2, 0.2, 1.0, "images/earth.bmp"},
+		{2.28, MARS_YEAR, MARS_DAY, 0.07, 1.0, 0.0, 0.0, "images/mars.bmp"},
+		{7.79, JUPITER_YEAR, JUPITER_DAY, 0.3, 1.0, 0.5, 0.0, "images/jupiter.bmp"},
+		{14.27, SATURN_YEAR, SATURN_DAY, 0.25, 1.0, 1.0, 0.5, "images/saturn.bmp"},
+		{28.71, URANUS_YEAR, URANUS_DAY, 0.2, 0.5, 0.5, 1.0, "images/uranus.bmp"},
+		{44.97, NEPTUNE_YEAR, NEPTUNE_DAY, 0.18, 0.3, 0.3, 0.8, "images/neptune.bmp"}};
 
 	for (auto &planet : planets)
 	{
+		imageFile* texture;
+		texture = getBMP(planet.image);
 		glPushMatrix();
 		glRotatef(360.0 * DayOfYear / planet.year, 0.0, 1.0, 0.0);
 		glTranslatef(planet.distance, 0.0, 0.0);				  
 		glRotatef(360.0 * HourOfDay / planet.day, 0.0, 1.0, 0.0); 
-		glColor3f(planet.r, planet.g, planet.b);
-		glutWireSphere(planet.size, 10, 10);
+		glEnable(GL_TEXTURE_2D);
+
+		GLuint textureID;
+		glGenTextures(1, &textureID);
+		glBindTexture(GL_TEXTURE_2D, textureID);		
+
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, texture->width, texture->height, 0, GL_RGBA, GL_UNSIGNED_BYTE, texture->data);
+
+		GLUquadric* quad = gluNewQuadric();
+		gluQuadricTexture(quad, GL_TRUE);
+		gluSphere(quad, planet.size, 20, 20);
+
+		gluDeleteQuadric(quad);
+		glDeleteTextures(1, &textureID);
+		glDisable(GL_TEXTURE_2D);
+
+		glPopMatrix();
+
+		delete[] texture->data;
+		delete texture;
 		glPopMatrix();
 	}
 
@@ -198,7 +297,6 @@ static void Animate(void)
 	glTranslatef(1.496, 0.0, 0.0);
 	glRotatef(360.0 * 12.0 * DayOfYear / 365.0, 0.0, 1.0, 0.0);
 	glTranslatef(0.2, 0.0, 0.0);
-	glColor3f(0.3, 0.7, 0.3);
 	glutWireSphere(0.05, 5, 5);
 	glPopMatrix();
 
@@ -217,10 +315,31 @@ static void Animate(void)
 // Initialize OpenGL's rendering modes
 void OpenGLInit(void)
 {
+
 	glShadeModel(GL_FLAT);
 	glClearColor(0.0, 0.0, 0.0, 0.0);
 	glClearDepth(1.0);
 	glEnable(GL_DEPTH_TEST);
+	glLightfv(GL_LIGHT0, GL_AMBIENT, WHITE);    // Ambient light
+    glLightfv(GL_LIGHT0, GL_DIFFUSE, WHITE);    // Diffuse light
+    glLightfv(GL_LIGHT0, GL_SPECULAR, WHITE);   // Specular light
+	const GLfloat LIGHT_POSITION[] = {0.0f, 0.0f, 0.0f, 1.0f}; // Point light
+    glLightfv(GL_LIGHT0, GL_POSITION, LIGHT_POSITION);
+	glEnable(GL_LIGHTING);
+    glEnable(GL_LIGHT0);
+
+    // Set up material properties for planets and other objects
+    glMaterialfv(GL_FRONT, GL_SPECULAR, WHITE);  // Specular reflection
+    glMaterialfv(GL_FRONT, GL_AMBIENT, WHITE);   // Ambient reflection
+    glMaterialfv(GL_FRONT, GL_DIFFUSE, WHITE);   // Diffuse reflection
+    glMaterialf(GL_FRONT, GL_SHININESS, 50.0f);  // Shininess factor (higher = shinier)
+
+    // Set background color and clear depth
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f); // Black background
+    glClearDepth(1.0f);
+
+    // Enable smooth shading for better visuals
+    glShadeModel(GL_SMOOTH);
 }
 
 // ResizeWindow is called when the window is resized
